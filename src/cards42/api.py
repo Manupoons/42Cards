@@ -9,6 +9,7 @@ from pathlib import Path
 
 BASE = "https://api.intra.42.fr"
 MAX_AVATAR = 300_000
+UA = "42Cards/1.0"  # Cloudflare in front of the 42 API rejects the default Python-urllib agent (error 1010)
 IMAGE_TYPES = ("image/jpeg", "image/png", "image/gif", "image/webp")
 
 
@@ -40,6 +41,7 @@ def _env(name):
 
 
 def _open(req, timeout=8):
+    req.add_header("User-Agent", UA)
     try:
         return urllib.request.urlopen(req, timeout=timeout)
     except urllib.error.HTTPError as e:

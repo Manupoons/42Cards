@@ -50,6 +50,7 @@ GET /card/<login>?theme=…
 - Zero runtime dependencies (Python standard library only).
 - Cards are pure SVG (no HTML or `foreignObject`, no external references). The avatar is embedded because an SVG shown through `<img>` cannot load external images.
 - Themes are data: one TOML file each in `src/cards42/themes/` (`bg`, `text`, `accent`, `track`, optional `art`). Backgrounds like `binary` and `water` are generated vector art, so each card is only a few KB.
+- **Avatars:** the 42 image CDN rejects non-browser clients (HTTP 403), so the avatar is embedded only when the download succeeds. Otherwise the card shows a placeholder with the login's initial.
 - Cards animate on load and respect `prefers-reduced-motion`.
 
 ## Run locally
