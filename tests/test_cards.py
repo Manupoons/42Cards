@@ -129,3 +129,55 @@ def test_429_gives_up_after_retries(monkeypatch):
     monkeypatch.setattr(api.time, "sleep", lambda s: None)
     with pytest.raises(api.RateLimited):
         api._open(urllib.request.Request("http://x"))
+
+
+@pytest.fixture
+def fake_store(monkeypatch):
+    from cards42 import store
+    data = {}
+    monkeypatch.setattr(store, "get", lambda k: data.get(k))
+    monkeypatch.setattr(store, "set", lambda k, v, ttl: data.__setitem__(k, v))
+    service._cache.clear()
+    return data
+
+
+def test_shared_cache_avoids_api_across_instances(fake_store, monkeypatch):
+    calls = []
+    monkeypatch.setattr(api, "fetch_user", lambda l: calls.append(l) or USER)
+    monkeypatch.setattr(api, "fetch_avatar", lambda u: ("image/png", b"\x89PNG"))
+    first = service.get_profile("student")
+    service._cache.clear()  # simulate a different cold instance: only the shared store remains
+    second = service.get_profile("student")
+    assert calls == ["student"] and second == first and second.avatar == ("image/png", b"\x89PNG")
+    assert not any(w in json.dumps(list(fake_store.values())) for w in ("email", "phone", "displayname"))
+
+
+def test_unknown_login_is_remembered(fake_store, monkeypatch):
+    calls = []
+
+    def nf(l):
+        calls.append(l)
+        raise api.NotFound(l)
+    monkeypatch.setattr(api, "fetch_user", nf)
+    for _ in range(3):
+        service._cache.clear()
+        with pytest.raises(api.NotFound):
+            service.get_profile("nobody")
+    assert calls == ["nobody"]  # one API call, then negative-cached
+
+
+def test_corrupt_shared_entry_falls_back_to_api(fake_store, monkeypatch):
+    fake_store["42cards:profile:v1:student"] = "{not json"
+    monkeypatch.setattr(api, "fetch_user", lambda l: USER)
+    monkeypatch.setattr(api, "fetch_avatar", lambda u: None)
+    assert service.get_profile("student").level == 8
+
+
+def test_store_is_best_effort(monkeypatch):
+    from cards42 import store
+    monkeypatch.delenv("KV_REST_API_URL", raising=False)
+    monkeypatch.delenv("UPSTASH_REDIS_REST_URL", raising=False)
+    assert store.get("k") is None and store.set("k", "v", 1) is None  # unconfigured: silent no-op
+    monkeypatch.setenv("KV_REST_API_URL", "http://127.0.0.1:9")
+    monkeypatch.setenv("KV_REST_API_TOKEN", "t")
+    assert store.get("k") is None  # unreachable: silent miss

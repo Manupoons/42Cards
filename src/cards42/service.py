@@ -3,22 +3,42 @@ import re
 import sys
 import time
 
-from . import api, profile, render
+from . import api, profile, render, store
 from .themes import DEFAULT, THEMES
 
 LOGIN_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,29}$")  # validated before it ever reaches the API URL
 SVG = "image/svg+xml"
 TTL, MAX_CACHE = 600, 256
+SHARED_TTL, MISSING_TTL = 3600, 600  # shared (Redis) cache: profiles 1h, unknown logins 10min
 _cache = {}  # login -> (expires, Profile); saves API calls when someone tries several themes
 
 
 def get_profile(login):
+    """memory -> shared store -> 42 API. Only public Profile fields are ever cached."""
     hit = _cache.get(login)
     if hit and hit[0] > time.time():
         return hit[1]
-    user = api.fetch_user(login)
+    key = f"42cards:profile:v1:{login}"
+    raw = store.get(key)
+    if raw == "missing":
+        raise api.NotFound(login)  # remembered unknown login: no API call
+    if raw:
+        try:
+            return _remember(login, profile.from_json(raw))
+        except (ValueError, TypeError, KeyError):
+            pass  # corrupt/old entry: refetch
+    try:
+        user = api.fetch_user(login)
+    except api.NotFound:
+        store.set(key, "missing", MISSING_TTL)
+        raise
     url = profile.avatar_url(user)
     p = profile.from_api(user, api.fetch_avatar(url) if url else None)
+    store.set(key, profile.to_json(p), SHARED_TTL)
+    return _remember(login, p)
+
+
+def _remember(login, p):
     if len(_cache) >= MAX_CACHE:
         _cache.clear()
     _cache[login] = (time.time() + TTL, p)

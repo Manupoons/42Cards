@@ -1,4 +1,6 @@
 """Public-only profile model. Email and real name are deliberately not represented."""
+import base64
+import json
 from dataclasses import dataclass
 
 
@@ -46,3 +48,17 @@ def from_api(user, avatar=None):
         kind=user.get("kind") or "student",
         avatar=avatar,
     )
+
+
+def to_json(p):
+    d = dict(p.__dict__)
+    if p.avatar:
+        d["avatar"] = [p.avatar[0], base64.b64encode(p.avatar[1]).decode()]
+    return json.dumps(d)
+
+
+def from_json(raw):
+    d = json.loads(raw)
+    if d.get("avatar"):
+        d["avatar"] = (d["avatar"][0], base64.b64decode(d["avatar"][1]))
+    return Profile(**d)

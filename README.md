@@ -80,8 +80,17 @@ You need a 42 API application (intra → Settings → API) with only the default
 
 **Region matters.** The 42 API sits behind Cloudflare, which answers a bot challenge ("Just a moment...", HTTP 403) to requests from some cloud regions. From Vercel's default `iad1` (Washington) every call was challenged; from `cdg1` (Paris, set in `vercel.json`) it works. If cards suddenly show `42 API error: HTTP 403`, that is the cause. Do not try to bypass the challenge, change region or host instead.
 
-The 42 API allows about 2 requests/second and 1200/hour per application, shared by everyone. Two layers protect that budget:
-CDN caching (`s-maxage=3600`) and a 10-minute in-memory profile cache, so trying all themes for a login costs one API call.
+The 42 API allows about 2 requests/second and 1200/hour per application, shared by everyone. Three layers protect that budget:
+CDN caching (`s-maxage=3600`), a 10-minute in-memory profile cache, and an optional **shared Redis cache** (below), so trying all themes for a login costs about one API call. A 429 from the 42 API is retried with jitter.
+
+### Shared cache (optional, recommended)
+
+Serverless instances don't share memory, so a burst of cold requests would each call the 42 API. A small Redis store fixes that:
+
+1. Vercel project → **Storage** → **Create** (or Marketplace → **Upstash Redis**), pick a region near `cdg1` (Paris/Frankfurt), connect it to this project.
+2. Vercel adds `KV_REST_API_URL` and `KV_REST_API_TOKEN` automatically (`UPSTASH_REDIS_REST_URL` / `_TOKEN` also work). Redeploy.
+
+Lookup order is memory → Redis → 42 API. Profiles are cached for 1 hour, unknown logins for 10 minutes (so random logins can't burn the API budget). Only the public card fields are stored (never email or real name), under keys `42cards:profile:v1:<login>`. If the store is missing or down, the service silently falls back to calling the 42 API directly.
 Per-IP rate limiting is **not** done in code (serverless instances do not share memory). Add a rate-limit rule in the
 Vercel dashboard (Firewall) if you expect abuse.
 
