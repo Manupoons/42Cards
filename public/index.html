@@ -36,12 +36,15 @@ $("f").addEventListener("submit",e=>{
   e.preventDefault();
   const login=$("login").value.trim().toLowerCase();
   $("md").hidden=true;$("grid").replaceChildren();
+  // Load one card at a time: the first request warms a server cache, the rest reuse it (and the 42 API stays under its rate limit).
+  const queue=[];
   for(const t of THEMES){
     const fig=document.createElement("figure"),img=new Image(),cap=document.createElement("figcaption");
-    img.src=url(login,t);img.alt=t+" card";img.loading="lazy";img.onclick=()=>pick(login,t);
+    img.alt=t+" card";img.onclick=()=>pick(login,t);
     cap.textContent=t+" (click for Markdown)";
-    fig.append(img,cap);$("grid").append(fig);
+    fig.append(img,cap);$("grid").append(fig);queue.push([img,url(login,t)]);
   }
+  (function next(){const q=queue.shift();if(!q)return;q[0].onload=q[0].onerror=next;q[0].src=q[1]})();
 });
 </script>
 </body>

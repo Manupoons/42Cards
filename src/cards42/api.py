@@ -1,6 +1,7 @@
 """Minimal 42 API client (stdlib only): client-credentials token + public user data."""
 import json
 import os
+import random
 import re
 import time
 import urllib.error
@@ -43,20 +44,28 @@ def _env(name):
 
 def _open(req, timeout=8):
     req.add_header("User-Agent", UA)
-    try:
-        return urllib.request.urlopen(req, timeout=timeout)
-    except urllib.error.HTTPError as e:
-        if e.code == 404:
-            raise NotFound(req.full_url) from e
-        if e.code == 429:
-            raise RateLimited(e.headers.get("Retry-After", "")) from e
-        detail = ""
-        if e.code == 403:  # Cloudflare block: keep a short, tag-free hint (e.g. "error code: 1010")
-            body = re.sub(r"<[^>]*>|\s+", " ", e.read(400).decode(errors="replace")).strip()
-            detail = f" {body[:40]}"
-        raise ApiError(f"HTTP {e.code}{detail}") from e
-    except (urllib.error.URLError, TimeoutError) as e:
-        raise ApiError(str(e)) from e
+    for attempt in range(3):
+        try:
+            return urllib.request.urlopen(req, timeout=timeout)
+        except urllib.error.HTTPError as e:
+            if e.code == 429:
+                if attempt < 2:  # 42 API allows ~2 req/s per app: wait a little (jittered) and retry
+                    try:
+                        wait = min(float(e.headers.get("Retry-After") or 1), 2)
+                    except ValueError:
+                        wait = 1
+                    time.sleep(wait + random.random())
+                    continue
+                raise RateLimited(e.headers.get("Retry-After", "")) from e
+            if e.code == 404:
+                raise NotFound(req.full_url) from e
+            detail = ""
+            if e.code == 403:  # Cloudflare block: keep a short, tag-free hint (e.g. "error code: 1010")
+                body = re.sub(r"<[^>]*>|\s+", " ", e.read(400).decode(errors="replace")).strip()
+                detail = f" {body[:40]}"
+            raise ApiError(f"HTTP {e.code}{detail}") from e
+        except (urllib.error.URLError, TimeoutError) as e:
+            raise ApiError(str(e)) from e
 
 
 def get_token(force=False):

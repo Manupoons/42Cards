@@ -98,3 +98,34 @@ def test_avatar_host_whitelist(monkeypatch):
     monkeypatch.setattr(api, "_open", lambda *a, **k: pytest.fail("must not fetch"))
     for url in ("http://cdn.intra.42.fr/a.jpg", "https://evil.example/a.jpg", "https://42.fr.evil.com/a.jpg"):
         assert api.fetch_avatar(url) is None
+
+
+def _http_error(code, retry_after="0"):
+    import email.message
+    import urllib.error
+    h = email.message.Message()
+    h["Retry-After"] = retry_after
+    return urllib.error.HTTPError("http://x", code, "x", h, None)
+
+
+def test_429_is_retried_then_succeeds(monkeypatch):
+    import urllib.request
+    calls = []
+
+    def fake(req, timeout=8):
+        calls.append(1)
+        if len(calls) < 3:
+            raise _http_error(429)
+        return "response"
+    monkeypatch.setattr(urllib.request, "urlopen", fake)
+    monkeypatch.setattr(api.time, "sleep", lambda s: None)
+    assert api._open(urllib.request.Request("http://x")) == "response"
+    assert len(calls) == 3
+
+
+def test_429_gives_up_after_retries(monkeypatch):
+    import urllib.request
+    monkeypatch.setattr(urllib.request, "urlopen", lambda req, timeout=8: (_ for _ in ()).throw(_http_error(429)))
+    monkeypatch.setattr(api.time, "sleep", lambda s: None)
+    with pytest.raises(api.RateLimited):
+        api._open(urllib.request.Request("http://x"))
