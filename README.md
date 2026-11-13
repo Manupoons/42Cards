@@ -78,6 +78,8 @@ You need a 42 API application (intra → Settings → API) with only the default
 2. Add environment variables `FT_UID` and `FT_SECRET`.
 3. Deploy. `vercel.json` already maps `/card/:login` to the function.
 
+**Region matters.** The 42 API sits behind Cloudflare, which answers a bot challenge ("Just a moment...", HTTP 403) to requests from some cloud regions. From Vercel's default `iad1` (Washington) every call was challenged; from `cdg1` (Paris, set in `vercel.json`) it works. If cards suddenly show `42 API error: HTTP 403`, that is the cause. Do not try to bypass the challenge, change region or host instead.
+
 The 42 API allows about 2 requests/second and 1200/hour per application, shared by everyone. Two layers protect that budget:
 CDN caching (`s-maxage=3600`) and a 10-minute in-memory profile cache, so trying all themes for a login costs one API call.
 Per-IP rate limiting is **not** done in code (serverless instances do not share memory). Add a rate-limit rule in the
