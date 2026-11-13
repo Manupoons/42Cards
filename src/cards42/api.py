@@ -49,7 +49,10 @@ def _open(req, timeout=8):
             raise NotFound(req.full_url) from e
         if e.code == 429:
             raise RateLimited(e.headers.get("Retry-After", "")) from e
-        raise ApiError(f"HTTP {e.code}") from e
+        detail = ""
+        if e.code == 403 and "text/plain" in (e.headers.get("Content-Type") or ""):
+            detail = " " + e.read(60).decode(errors="replace").strip()  # e.g. Cloudflare "error code: 1010"
+        raise ApiError(f"HTTP {e.code}{detail}") from e
     except (urllib.error.URLError, TimeoutError) as e:
         raise ApiError(str(e)) from e
 
