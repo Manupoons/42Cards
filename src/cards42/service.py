@@ -1,5 +1,6 @@
 """Request logic shared by the Vercel handler and the CLI. Returns (status, content_type, body, cache_seconds)."""
 import re
+import sys
 import time
 
 from . import api, profile, render
@@ -37,7 +38,9 @@ def respond(login, theme_name=None):
         return 200, SVG, render.render(get_profile(login), theme), 3600
     except api.NotFound:
         return 200, SVG, render.render_message(theme, "Unknown login", f"No 42 user '{login}'"), 600
-    except api.RateLimited:
+    except api.RateLimited as e:
+        print(f"cards42: rate limited (retry-after={e})", file=sys.stderr)
         return 200, SVG, render.render_message(theme, "Busy", "42 API rate limit, retry soon"), 60
-    except api.ApiError:
+    except api.ApiError as e:
+        print(f"cards42: api error: {e}", file=sys.stderr)  # shows in Vercel logs; never includes credentials
         return 200, SVG, render.render_message(theme, "Unavailable", "42 API error, retry soon"), 60
