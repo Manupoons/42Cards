@@ -1,6 +1,7 @@
 """Minimal 42 API client (stdlib only): client-credentials token + public user data."""
 import json
 import os
+import re
 import time
 import urllib.error
 import urllib.parse
@@ -50,8 +51,9 @@ def _open(req, timeout=8):
         if e.code == 429:
             raise RateLimited(e.headers.get("Retry-After", "")) from e
         detail = ""
-        if e.code == 403 and "text/plain" in (e.headers.get("Content-Type") or ""):
-            detail = " " + e.read(60).decode(errors="replace").strip()  # e.g. Cloudflare "error code: 1010"
+        if e.code == 403:  # Cloudflare block: keep a short, tag-free hint (e.g. "error code: 1010")
+            body = re.sub(r"<[^>]*>|\s+", " ", e.read(400).decode(errors="replace")).strip()
+            detail = f" {body[:40]}"
         raise ApiError(f"HTTP {e.code}{detail}") from e
     except (urllib.error.URLError, TimeoutError) as e:
         raise ApiError(str(e)) from e
