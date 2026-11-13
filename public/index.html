@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>42Cards</title>
+<style>
+  :root{--bg:#fff;--fg:#1a1a1a;--mut:#666;--line:#ddd}
+  @media(prefers-color-scheme:dark){:root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--line:#30363d}}
+  body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,sans-serif}
+  main{max-width:1000px;margin:0 auto;padding:32px 16px}
+  h1{margin:0 0 4px} p{color:var(--mut);margin:4px 0 20px}
+  form{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+  input,button{font:inherit;padding:8px 12px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg)}
+  input{flex:1;min-width:180px} button{cursor:pointer}
+  pre{margin:0 0 24px;padding:12px;border:1px solid var(--line);border-radius:6px;overflow-x:auto;font-size:13px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
+  figure{margin:0} figure img{width:100%;height:auto;border-radius:10px;cursor:pointer}
+  figcaption{color:var(--mut);font-size:13px;margin-top:4px}
+</style>
+</head>
+<body>
+<main>
+  <h1>42Cards</h1>
+  <p>A profile card for any 42 login. Type a login, pick a theme, paste the Markdown into your README.</p>
+  <form id="f"><input id="login" placeholder="42 login" autocomplete="off" required pattern="[a-zA-Z0-9][a-zA-Z0-9_\-]{0,29}"><button>Show cards</button></form>
+  <pre id="md" hidden></pre>
+  <div class="grid" id="grid"></div>
+</main>
+<script>
+const THEMES=["binary","black","colorfulwaves","darkblue","darkgray","greenbinary","honeytones","kettlebells","landscapes","levi","starryblue","water"];
+const $=id=>document.getElementById(id);
+function url(login,theme){return location.origin+"/card/"+encodeURIComponent(login)+"?theme="+theme}
+function pick(login,theme){$("md").hidden=false;$("md").textContent="!["+login+"'s 42 card]("+url(login,theme)+")"}
+$("f").addEventListener("submit",e=>{
+  e.preventDefault();
+  const login=$("login").value.trim().toLowerCase();
+  $("md").hidden=true;$("grid").replaceChildren();
+  for(const t of THEMES){
+    const fig=document.createElement("figure"),img=new Image(),cap=document.createElement("figcaption");
+    img.src=url(login,t);img.alt=t+" card";img.loading="lazy";img.onclick=()=>pick(login,t);
+    cap.textContent=t+" (click for Markdown)";
+    fig.append(img,cap);$("grid").append(fig);
+  }
+});
+</script>
+</body>
+</html>

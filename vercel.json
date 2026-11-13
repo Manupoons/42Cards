@@ -1,0 +1,4 @@
+{
+  "rewrites": [{ "source": "/card/:login", "destination": "/api/card?login=:login" }],
+  "functions": { "api/card.py": { "includeFiles": "src/**" } }
+}

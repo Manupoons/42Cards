@@ -1,0 +1,16 @@
+{
+  "_note": "ASSUMED shape of GET /v2/users/{login}, written from the 42 API docs. Replace with a real (anonymised) response once verified with credentials.",
+  "id": 1,
+  "login": "student",
+  "kind": "student",
+  "image": {
+    "link": "https://cdn.intra.42.fr/users/example/student.jpg",
+    "versions": {"medium": "https://cdn.intra.42.fr/users/example/medium_student.jpg"}
+  },
+  "campus": [{"id": 22, "name": "Madrid"}],
+  "campus_users": [{"campus_id": 22, "is_primary": true}],
+  "cursus_users": [
+    {"grade": null, "level": 3.1, "cursus": {"slug": "c-piscine", "name": "C Piscine"}},
+    {"grade": "Learner", "level": 8.42, "cursus": {"slug": "42cursus", "name": "42cursus"}}
+  ]
+}
