@@ -43,4 +43,4 @@ def respond(login, theme_name=None):
         return 200, SVG, render.render_message(theme, "Busy", "42 API rate limit, retry soon"), 60
     except api.ApiError as e:
         print(f"cards42: api error: {e}", file=sys.stderr)  # shows in Vercel logs; never includes credentials
-        return 200, SVG, render.render_message(theme, "Unavailable", "42 API error, retry soon"), 60
+        return 200, SVG, render.render_message(theme, "Unavailable", f"42 API error: {str(e)[:40]}"), 60
