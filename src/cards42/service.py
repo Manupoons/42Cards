@@ -1,4 +1,5 @@
 """Request logic shared by the Vercel handler and the CLI. Returns (status, content_type, body, cache_seconds)."""
+import json
 import re
 import sys
 import time
@@ -45,22 +46,33 @@ def _remember(login, p):
     return p
 
 
+def _cards(login, names):
+    """{theme: svg} for the given themes from ONE profile lookup, plus CDN cache seconds."""
+    try:
+        p = get_profile(login)
+        return {n: render.render(p, THEMES[n]) for n in names}, 3600
+    except api.NotFound:
+        msg, cache = ("Unknown login", f"No 42 user '{login}'"), 600
+    except api.RateLimited as e:
+        print(f"cards42: rate limited (retry-after={e})", file=sys.stderr)
+        msg, cache = ("Busy", "42 API rate limit, retry soon"), 60
+    except api.ApiError as e:
+        print(f"cards42: api error: {e}", file=sys.stderr)  # shows in Vercel logs; never includes credentials
+        msg, cache = ("Unavailable", f"42 API error: {str(e)[:40]}"), 60
+    # Errors are 200 SVG cards (an image in a README must not render as a broken image).
+    return {n: render.render_message(THEMES[n], *msg) for n in names}, cache
+
+
 def respond(login, theme_name=None):
+    """theme_name="all" returns JSON {theme: svg} for every theme (one request instead of twelve)."""
     login = (login or "").strip().lower()
     theme_name = theme_name or DEFAULT
     if not LOGIN_RE.match(login):
         return 400, "text/plain", "invalid login", 0
+    if theme_name == "all":
+        cards, cache = _cards(login, sorted(THEMES))
+        return 200, "application/json", json.dumps(cards), cache
     if theme_name not in THEMES:
-        return 400, "text/plain", "unknown theme. available: " + ", ".join(sorted(THEMES)), 0
-    theme = THEMES[theme_name]
-    # Errors are 200 SVG cards (an image in a README must not render as a broken image).
-    try:
-        return 200, SVG, render.render(get_profile(login), theme), 3600
-    except api.NotFound:
-        return 200, SVG, render.render_message(theme, "Unknown login", f"No 42 user '{login}'"), 600
-    except api.RateLimited as e:
-        print(f"cards42: rate limited (retry-after={e})", file=sys.stderr)
-        return 200, SVG, render.render_message(theme, "Busy", "42 API rate limit, retry soon"), 60
-    except api.ApiError as e:
-        print(f"cards42: api error: {e}", file=sys.stderr)  # shows in Vercel logs; never includes credentials
-        return 200, SVG, render.render_message(theme, "Unavailable", f"42 API error: {str(e)[:40]}"), 60
+        return 400, "text/plain", "unknown theme. available: " + ", ".join(sorted(THEMES)) + ", all", 0
+    cards, cache = _cards(login, [theme_name])
+    return 200, SVG, cards[theme_name], cache

@@ -26,11 +26,11 @@ The popular [badge42](https://github.com/oakoudad/badge42) card was a closed-sou
 `GET /card/<login>?theme=<theme>`
 
 - `login`: 42 intra login (`a-z 0-9 _ -`, up to 30 chars).
-- `theme`: one of the 12 above. Default `kettlebells`.
+- `theme`: one of the 12 above (default `kettlebells`), or `all` to get JSON `{theme: svg}` for every theme from a single lookup (this is what the landing page uses, so one search is one request).
 - Always returns an SVG with status 200 for valid input, including a readable "Unknown login" / "Busy" card, so READMEs never show a broken image. Invalid `login` or `theme` returns 400.
 - Responses are cached on the CDN for an hour.
 
-`/` is a small page that previews every theme for a login and gives you the Markdown.
+`/` is a small page that previews every theme for a login and gives you the Markdown. `/?login=<login>` opens it pre-searched.
 
 ## Privacy
 

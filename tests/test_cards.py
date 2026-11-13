@@ -181,3 +181,25 @@ def test_store_is_best_effort(monkeypatch):
     monkeypatch.setenv("KV_REST_API_URL", "http://127.0.0.1:9")
     monkeypatch.setenv("KV_REST_API_TOKEN", "t")
     assert store.get("k") is None  # unreachable: silent miss
+
+
+def test_theme_all_is_one_lookup_and_all_valid(fake_store, monkeypatch):
+    calls = []
+    monkeypatch.setattr(api, "fetch_user", lambda l: calls.append(l) or USER)
+    monkeypatch.setattr(api, "fetch_avatar", lambda u: None)
+    status, ctype, body, cache = service.respond("student", "all")
+    cards = json.loads(body)
+    assert (status, ctype, cache) == (200, "application/json", 3600)
+    assert sorted(cards) == sorted(THEMES) and calls == ["student"]
+    for svg in cards.values():
+        ET.fromstring(svg)
+
+
+def test_theme_all_unknown_login_gives_error_cards(fake_store, monkeypatch):
+    def nf(l):
+        raise api.NotFound(l)
+    monkeypatch.setattr(api, "fetch_user", nf)
+    status, _, body, cache = service.respond("nobody", "all")
+    cards = json.loads(body)
+    assert status == 200 and len(cards) == 12 and cache == 600
+    assert all("Unknown login" in svg for svg in cards.values())

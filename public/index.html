@@ -32,20 +32,27 @@ const THEMES=["binary","black","colorfulwaves","darkblue","darkgray","greenbinar
 const $=id=>document.getElementById(id);
 function url(login,theme){return location.origin+"/card/"+encodeURIComponent(login)+"?theme="+theme}
 function pick(login,theme){$("md").hidden=false;$("md").textContent="!["+login+"'s 42 card]("+url(login,theme)+")"}
-$("f").addEventListener("submit",e=>{
+$("f").addEventListener("submit",async e=>{
   e.preventDefault();
   const login=$("login").value.trim().toLowerCase();
   $("md").hidden=true;$("grid").replaceChildren();
-  // Load one card at a time: the first request warms a server cache, the rest reuse it (and the 42 API stays under its rate limit).
-  const queue=[];
+  // One request returns all 12 cards (keeps us far below the rate limits).
+  let cards;
+  try{
+    const r=await fetch(url(login,"all"));
+    if(!r.ok)throw new Error(r.status===429?"Too many requests, wait a minute and try again.":"Request failed ("+r.status+").");
+    cards=await r.json();
+  }catch(err){$("grid").textContent=err.message;return}
   for(const t of THEMES){
     const fig=document.createElement("figure"),img=new Image(),cap=document.createElement("figcaption");
-    img.alt=t+" card";img.onclick=()=>pick(login,t);
+    img.alt=t+" card";img.src="data:image/svg+xml;charset=utf-8,"+encodeURIComponent(cards[t]);
+    img.onclick=()=>pick(login,t);
     cap.textContent=t+" (click for Markdown)";
-    fig.append(img,cap);$("grid").append(fig);queue.push([img,url(login,t)]);
+    fig.append(img,cap);$("grid").append(fig);
   }
-  (function next(){const q=queue.shift();if(!q)return;q[0].onload=q[0].onerror=next;q[0].src=q[1]})();
 });
+const q=new URLSearchParams(location.search).get("login");
+if(q){$("login").value=q;$("f").requestSubmit()}
 </script>
 </body>
 </html>
